@@ -1,0 +1,1492 @@
+---
+title: "Summary of National-level quantitative results for the Protection Monitoring"
+output:
+  html_document:
+    unhcRstyle::unhcr_templ_html:
+    toc: true
+    toc_depth: 3
+    number_sections: false
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+date: "`r format(Sys.time(), '%d %B %Y')`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, 
+                      message = FALSE, 
+                      warning = FALSE, 
+                      collapse = FALSE,
+                      comment = "#>",
+                      fig.align = "center")
+knitr::opts_chunk$set(fig.width = 8, fig.height = 5)
+set.seed(1)
+extrafont::loadfonts(quiet=TRUE)
+options(scipen = 999) # turn-off scientific notation like 1e+48
+```
+
+```{r data, include=FALSE}
+library(readr)
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(knitr)
+library(tidyr)
+library(forcats)
+library(haven)
+library(srvyr)
+library(labelled)
+library(kableExtra)
+library(unhcRstyle)
+library(survey)
+library(zoo)
+library(questionr)
+
+main2 <- read_csv2("C:/Users/PONCECOL/OneDrive - UNHCR/UNHCR_PAPC/RMS sept2022/Análisis/main.csv")
+
+ind2 <- read_csv2("C:/Users/PONCECOL/OneDrive - UNHCR/UNHCR_PAPC/RMS sept2022/Análisis/ind.csv")
+  
+dfg <- main2 %>% mutate(fexp=weights) 
+
+dfg$REF02[dfg$"_index" == 1470] <- "Venezolana"
+dfg$REF02[dfg$"_index" == 1793] <- "Venezolana"
+dfg$REF02[dfg$"_index" == 1819] <- "Venezolana"
+dfg$REF02[dfg$"_index" == 1958] <- "Venezolana"
+dfg$REF02[dfg$"_index" == 2021] <- "Venezolana"
+dfg$REF02[dfg$"_index" == 2142] <- "Venezolana"
+dfg$REF02[dfg$"_index" == 2430] <- "Venezolana"
+
+dfg$REF02[dfg$"_index" == 121] <- "Colombiana"
+dfg$REF02[dfg$"_index" == 747] <- "Colombiana"
+
+#dfg %>% mutate(weights = na.locf0(weights))
+
+dfper <- ind2 %>% mutate(fexp=w_roster)
+
+rm(main2, ind2)
+
+```
+
+```{r defining svy design, include=FALSE}
+svy.dat <- svydesign(ids=~1, data=dfg, weights=dfg$fexp)
+
+svy.ind <- svydesign(ids=~1, data=dfper, weights=dfper$fexp)
+
+#svytable(~dfg$REF02, design=svy.dat) %>% prop.table()
+
+#dfg %>% group_by(REF02) %>% summarise(weighted.mean(HH04, weights, na.rm=TRUE))
+
+#wtd.table(x=dfg$REF02, weights = dfg$fexp)
+
+```
+
+# Introduction
+
+We are using the answers from **3,083 households** that registered their address in Ecuador. A _58%_ corresponds to respondents from _Venezuela_ and the _42% to Colombians_. Within Venezuelan informants, _74% of the respondents are women_. Within Colombians, a _65% are women_. 
+
+The 3,083 surveyed households include a total of 11,684 individuals. Also, the _average household size_ for Colombians is 3.48 people, meanwhile this number increases up to 3.94 people between Venezuelans. This facts shows that, in average, the households of Venezuelans are slightly larger and then, need more resources to cover their basic needs.
+
+The next element we can observe from our survey are the special needs reported by respondents. Then, we can analyze other important elements regarding protection needs in Ecuador. Some statistics are presented *only as the national average* because there are not important differences between answers reported by Colombians and by Venezuelans.
+
+
+# Special Needs and Gender-based violence
+
+```{r spn}
+## Special Needs
+
+# spn <- dfg %>%
+#   select("SPNEEDS.1",	"SPNEEDS.2",	"SPNEEDS.3",	"SPNEEDS.4",	"SPNEEDS.5",	"SPNEEDS.6", "SPNEEDS.7",	"SPNEEDS.8", "fexp") %>%
+#   summarise(across(SPNEEDS.1:SPNEEDS.8, sum)) 
+
+spn <- dfg %>% as_survey_design(weights=fexp) %>%
+  select("SPNEEDS.1",	"SPNEEDS.2",	"SPNEEDS.3",	"SPNEEDS.4",	"SPNEEDS.5",	"SPNEEDS.6", "SPNEEDS.7",	"SPNEEDS.8", "fexp") %>%
+  summarise(across(c(SPNEEDS.1:SPNEEDS.8), survey_total))
+
+
+spn <- spn %>% select(-ends_with("_se")) %>% 
+  rename('Condición médica sin tratamiento' = SPNEEDS.1,	
+         'Condición médica con tratamiento' = SPNEEDS.2,	
+         'Niños/as no acompañados' = SPNEEDS.3,	
+         'Mujer embarazada' = SPNEEDS.4,	
+         'Mujer en lactancia' = SPNEEDS.5,	
+         'Madre/Padre sola/o con niñas/os' = SPNEEDS.6,	
+         'Víctima o sobreviviente de violencia' = SPNEEDS.7,	
+         'Ninguna de estas necesidades' = SPNEEDS.8
+         )
+
+spn2 <- gather(spn, v, val, "Condición médica sin tratamiento":"Ninguna de estas necesidades") %>%  
+          mutate(Percent=100*val/sum(val)) %>% 
+          mutate(Percent=round(Percent, 1))
+
+ggplot(spn2, aes(x=reorder(v, Percent), y=Percent)) +
+    geom_bar(stat="identity", fill="#0072bc", alpha=.6, widht=.4) +
+    geom_text(aes(label = Percent), position = position_dodge(width = 0.9), 
+              vjust = 0.25, size=4) +
+    coord_flip() +
+    xlab("") + 
+    ggtitle("Necesidades Especiales (algún miembro en el hogar)") +
+    theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=12),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face= "bold", size=12, hjust=0.25)) + 
+scale_fill_manual(values=c("#044F85", "#0072BC", "#589BE5", "#8EBEFF"))
+
+#rm(spn, spn2)  
+
+```
+
+The graph shows us that, main needs within surveyed households are mother or father alone with kids, or lactating woman. It implies that head of families, and specially woman, could have difficulties to cover their special needs or to access to their rights.
+
+```{r spn nat}
+spn <- dfg %>% as_survey_design(weights=fexp) %>%
+  group_by(REF02) %>% 
+  select("SPNEEDS.1",	"SPNEEDS.2",	"SPNEEDS.3",	"SPNEEDS.4",	"SPNEEDS.5",	"SPNEEDS.6", "SPNEEDS.7",	"SPNEEDS.8", "fexp") %>%
+  summarise(across(c(SPNEEDS.1:SPNEEDS.8), survey_total))
+
+spn <- spn %>% select(-ends_with("_se")) %>% 
+  rename('Condición médica sin tratamiento' = SPNEEDS.1,	
+         'Condición médica con tratamiento' = SPNEEDS.2,	
+         'Niños/as no acompañados' = SPNEEDS.3,	
+         'Mujer embarazada' = SPNEEDS.4,	
+         'Mujer en lactancia' = SPNEEDS.5,	
+         'Madre/Padre sola/o con niñas/os' = SPNEEDS.6,	
+         'Víctima o sobreviviente de violencia' = SPNEEDS.7,	
+         'Ninguna de estas necesidades' = SPNEEDS.8
+         )
+
+spn2 <- gather(spn, v, val, "Condición médica sin tratamiento":"Ninguna de estas necesidades") %>% 
+          group_by(REF02) %>% 
+          mutate(Percent=100*val/sum(val)) %>% 
+          mutate(Percent=round(Percent, 1))
+
+ggplot(spn2, aes(x=REF02, y=Percent, fill=v)) +
+  geom_bar(position = "dodge", stat="identity", alpha=.6, widht=.4) +
+  geom_text(aes(label=Percent), position = position_dodge(width = 0.9),
+            vjust=0.25, size=4) +
+  ggtitle("Necesidades Especiales (algún miembro en el hogar) por nacionalidad") +
+  theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=12),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face="bold", size=12, hjust=0.5)) + 
+scale_fill_manual(values=c("#044F85", "#0072BC", "#589BE5", "#8EBEFF",
+                           "#027B68", "#00B398", "#49CFB4", "#6AE8CC"))
+
+```
+
+```{r GBV main violence}
+gbv_main <- dfg %>%
+  select("GBV02", "GBV04", "fexp") %>%
+  mutate(GBV02 = recode(GBV02,
+                        '1' = "Violencia física",
+                        '2' = "Violencia psicológica",
+                        '3' = "Violencia sexual",
+                        '4' = "Violencia socioeconómica",
+                        '5' = "Trata",
+                        '6' = "Otras formas de violencia")) %>% 
+  mutate(GBV04 = recode(GBV04,
+                        '1' = "Hogar",
+                        '2' = "Espacios públicos",
+                        '3' = "Comercios/Tienda/Mercado",
+                        '4' = "Transporte público",
+                        '5' = "Albergues/Refugios",
+                        '6' = "Hospital",
+                        '7' = "En su lugar de trabajo",
+                        '8' = "Otros lugares"))
+
+gbv1 <- (as.data.frame(wtd.table(gbv_main$GBV02, weights=gbv_main$fexp))) %>% mutate(Percent=100*Freq/sum(Freq)) %>% 
+    mutate(Percent=round(Percent, 1))
+
+ggplot(gbv1, aes(x=reorder(Var1, Percent), y=Percent)) +
+    geom_bar(stat="identity", fill="#0072bc", alpha=.6, widht=.4) +
+    geom_text(aes(label = Percent), position = position_dodge(width =  0.9), vjust = 0.25, size=4) +
+    coord_flip() +
+    xlab("") + 
+    ggtitle("Principal violencia que pueden sufrir las mujeres, niñas
+            y personas LGBTIQ+ en su comunidad") +
+    theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=12),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face= "bold", size=12, hjust=0.25)) + 
+scale_fill_manual(values=c("#18375F", "#044F85", "#0072BC", "#589BE5", "#8EBEFF", "#DCE9FF"))
+
+```
+
+```{r GBV where violence}
+gbv2 <- (as.data.frame(wtd.table(gbv_main$GBV04, weights=gbv_main$fexp))) %>% mutate(Percent=100*Freq/sum(Freq)) %>% 
+    mutate(Percent=round(Percent, 1))
+
+ggplot(gbv2, aes(x=reorder(Var1, Percent), y=Percent)) +
+    geom_bar(stat="identity", fill="#0072bc", alpha=.6, widht=.4) +
+    geom_text(aes(label = Percent), position = position_dodge(width =  0.9), vjust = 0.25, size=4) +
+    coord_flip() +
+    xlab("") + 
+    ggtitle("Lugar donde cree que las mujeres, niñas y personas LGBTIQ+ 
+            están en mayor riesgo de sufrir violencia de género") +
+    theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=12),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face= "bold", size=12, hjust=0.25)) + 
+scale_fill_manual(values=c("#044F85", "#0072BC", "#589BE5", "#8EBEFF",
+                           "#027B68", "#00B398", "#49CFB4", "#6AE8CC"))
+
+```
+
+The PoC that answered the survey pointed out as main kinds of violence against women, girls and LGBTIQ+ persons, the psychological and physical violence. And, in almost all cases, they showed us that they identify the public areas and the own households as the most dangerous places to women, girls and LGBTIQ+ persons.
+
+# Displacement experience
+
+```{r reasons_to_flee}
+dfg$REF15_num <- as.double(dfg$REF15)
+
+flee <- dfg %>% 
+  mutate(flee=case_when(
+  REF15_num==1 ~ "Empleo",
+  REF15_num==15 ~ "Falta de acceso a alimentos o salud",
+  REF15_num==96 ~ "Otro desplazamiento forzado",
+  REF15_num==7 ~ "Violencia generalizada",
+  REF15_num==4 ~ "Matrimonio o reunificación familiar",
+  REF15_num==6 ~ "Conflicto armado",
+  TRUE ~ "Otras razones")) %>% 
+  group_by(REF02) %>% select(flee, REF02, fexp)
+
+flee2 <- (as.data.frame(wtd.table(flee$flee, flee$REF02, weights=flee$fexp))) %>% group_by(Var2) %>%  
+          mutate(Percent=100*Freq/sum(Freq)) %>% 
+          mutate(Percent=round(Percent, 1))
+
+ggplot(flee2, aes(x=Var2, y=Percent, fill=Var1)) +
+    geom_bar(position="dodge", stat="identity", alpha=.6, widht=.4) +
+    geom_text(aes(label = Percent), position = position_dodge(width = 0.9), 
+              vjust = 0.25, size=4) +
+    ggtitle("Razones de desplazamiento por nacionalidad") +
+    theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=12),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face= "bold", size=12, hjust=0.5)) +
+  scale_fill_manual(values=c("#044F85", "#0072BC", "#589BE5", "#8EBEFF",
+                           "#027B68", "#00B398", "#49CFB4", "#6AE8CC"))
+
+```
+
+About the reasons to flee, Colombian PoC identified mainly the armed conflict, followed by other forced displacements. Meanwhile, Venezuelan PoC expressed mainly the lack of employment and the poor access to health services or food in their country of origin.
+
+```{r trans}
+trans <- dfg %>% as_survey_design(weights=fexp) %>% 
+  select("TRANSPORT.1",	"TRANSPORT.2",	"TRANSPORT.3",	"TRANSPORT.4",	"TRANSPORT.5",	"TRANSPORT.6", "TRANSPORT.7",	"TRANSPORT.8", "fexp") %>%
+  summarise(across(c(TRANSPORT.1:TRANSPORT.8), survey_total)) 
+
+trans <- trans %>% select(-ends_with("_se")) %>% 
+  rename('Bus' = TRANSPORT.1,	
+         'Taxi' = TRANSPORT.2,	
+         'Auto' = TRANSPORT.3,	
+         'Avión' = TRANSPORT.4,	
+         'Barco o bote' = TRANSPORT.5,	
+         'Caminando' = TRANSPORT.6,	
+         'Auto-stop' = TRANSPORT.7,	
+         'Otros' = TRANSPORT.8
+         )
+
+trans2 <- gather(trans, v, val, "Bus":"Otros") %>% 
+          mutate(Percent=100*val/sum(val)) %>% 
+          mutate(Percent=round(Percent, 1))
+
+ggplot(trans2, aes(x=reorder(v, Percent), y=Percent)) +
+    geom_bar(stat="identity", fill="#0072bc", alpha=.6, widht=.4) +
+    geom_text(aes(label = Percent), position = position_dodge(width = 0.9), 
+              vjust = 0.25, size=4) +
+    coord_flip() +
+  xlab("") +
+    ggtitle("Medios de Transporte utilizados para llegar a este lugar") +
+    theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=12),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face= "bold", size=12, hjust=0.5))
+
+```
+
+About the transport used to come to Ecuador, Poc identifies mainly the bus. Also, 18% mentioned that walked at least one section of their route, which increases the risk of a security incident during the journey.
+
+```{r transport nat}
+trans <- dfg %>% as_survey_design(weights=fexp) %>% 
+  group_by(REF02) %>% 
+  select("TRANSPORT.1",	"TRANSPORT.2",	"TRANSPORT.3",	"TRANSPORT.4",	"TRANSPORT.5",	"TRANSPORT.6", "TRANSPORT.7",	"TRANSPORT.8", "fexp") %>%
+  summarise(across(c(TRANSPORT.1:TRANSPORT.8), survey_total)) 
+
+trans <- trans %>% select(-ends_with("_se")) %>% 
+  rename('Bus' = TRANSPORT.1,	
+         'Taxi' = TRANSPORT.2,	
+         'Auto' = TRANSPORT.3,	
+         'Avión' = TRANSPORT.4,	
+         'Barco o bote' = TRANSPORT.5,	
+         'Caminando' = TRANSPORT.6,	
+         'Auto-stop' = TRANSPORT.7,	
+         'Otros' = TRANSPORT.8
+         )
+
+trans2 <- gather(trans, v, val, "Bus":"Otros") %>% 
+          group_by(REF02) %>% 
+          mutate(Percent=100*val/sum(val)) %>% 
+          mutate(Percent=round(Percent, 1))
+
+ggplot(trans2, aes(x=REF02, y=Percent, fill=v)) +
+    geom_bar(position = "dodge", stat="identity", alpha=.6, widht=.4) +
+    geom_text(aes(label = Percent), position = position_dodge(width = 0.9), 
+              vjust = 0.25, size=4) +
+    ggtitle("Medios de Transporte utilizados por nacionalidad") +
+    theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=12),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face= "bold", size=12, hjust=0.5)) +
+    scale_fill_manual(values=c("#044F85", "#0072BC", "#589BE5", "#8EBEFF",
+                           "#027B68", "#00B398", "#49CFB4", "#6AE8CC"))
+
+```
+
+
+```{r displacement}
+d_int <- dfg %>%
+  select("DISPL_INTENTIONS", "DISPL_WHERE", "fexp", "REF02") %>%
+  mutate(DISPL_INTENTIONS = recode(DISPL_INTENTIONS,
+                                   '1' = "Si",
+                                   '0' = "No",
+                                   '98' = "No sabe")) %>% 
+  mutate(DISPL_WHERE = recode(DISPL_WHERE,
+                              '1'="País de origen",
+                              '2'="A otra ciudad en este país",
+                              '3'="A otro país",
+                              '4'="No sabe",
+                              '5'="Prefiere no decir"))
+
+#tab_int <- round(prop.table(table(d_int$DISPL_INTENTIONS)),2)
+
+tab_int <- as.data.frame(svytable(~d_int$DISPL_INTENTIONS, design=svy.dat) %>% prop.table()) %>% 
+  mutate(Percent=100*Freq/sum(Freq)) %>% 
+  mutate(Percent=round(Percent, 1)) %>% select(-"Freq")
+
+knitr:: kable(tab_int, 
+      col.names = c("Respuesta", "Porcentaje"),
+      align = "cc",
+      caption = "Tabla 1: Intenciones de desplazamiento desde la ciudad actual") %>% 
+  kable_classic_2(full_width=FALSE, font_size=22)
+```
+
+The table 1 shows us that just the 8% of respondents have the intention to leave their current city in the short term. However, this fact could change rapidly in the next months.
+
+```{r displacement nat}
+tab_int <- (as.data.frame(wtd.table(d_int$DISPL_INTENTIONS, d_int$REF02, weights = d_int$fexp))) %>% group_by(Var2) %>% 
+  mutate(Percent=100*Freq/sum(Freq)) %>% 
+  mutate(Percent=round(Percent, 1))
+
+ggplot(tab_int, aes(x=Var2, y=Percent, fill=Var1)) +
+  geom_bar(position = "dodge", stat="identity", alpha=.6, widht=.4) +
+  geom_text(aes(label=Percent), position = position_dodge(width = 0.9),
+            vjust=0.25, size=4) +
+  ggtitle("Intenciones de desplazamiento por nacionalidad") +
+  theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=12),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face="bold", size=12, hjust=0.5)) + 
+scale_fill_manual(values=c("#044F85", "#0072BC", "#589BE5"))
+
+```
+
+
+```{r disp_where}
+
+T_W <- (as.data.frame(wtd.table(d_int$DISPL_WHERE, weights = d_int$fexp)) %>%       mutate(Percent=100*Freq/sum(Freq))) %>% 
+          mutate(Percent=round(Percent,1))
+
+ggplot(T_W, aes(reorder(Var1, -Percent), Percent)) +
+    geom_col(stat="identity", fill="#0072bc", alpha=.6, widht=.4) +
+    geom_text(aes(label=Percent), position = position_dodge(width = 0.9),
+              vjust=0.25, size=4) +
+    xlab("") + 
+    ggtitle("A qué lugar tiene la intención de desplazarse") +
+    theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=10),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face="bold", size=12, hjust=0.5))
+
+```
+
+Between those want to move to another place, more than the half want to stay in Ecuador but living in other city. Also, a 18% want to move to their country of origin.
+
+```{r dis_reasons}
+d_rea <- dfg %>%
+  select("DISPL_REASONS", "fexp") %>%
+  mutate(DISPL_REASONS = recode(DISPL_REASONS,
+                      '1'="Pérdida de trabajo",
+                      '2'="Pérdida de alojamiento",
+                      '3'="Falta de servicios médicos",
+                      '4'="Cuidado de parientes",
+                      '5'="Falta de documentación",
+                      '6'="Miedo por la inseguridad",
+                      '7'="Xenofobia y discriminación",
+                      '8'="Otra"))
+
+T_R <- (as.data.frame(wtd.table(d_rea$DISPL_REASONS, weights = d_rea$fexp))) %>%       mutate(Percent=100*Freq/sum(Freq)) %>% 
+          mutate(Percent=round(Percent,1))
+  
+ggplot(T_R, aes(reorder(Var1, Percent), Percent)) +
+    geom_bar(stat="identity", fill="#0072bc", alpha=.6, widht=.4) +
+    geom_text(aes(label=Percent), position = position_dodge(width = 0.9),
+              vjust=0.25, size=4) +
+    coord_flip() + 
+    xlab("") + 
+    ggtitle("Razones de la intención de un nuevo desplazamiento") +
+    theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=12),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face="bold", size=12, hjust=0.5)) +
+  scale_fill_manual(values=c("#044F85", "#0072BC", "#589BE5", "#8EBEFF"))
+
+```
+
+PoC that want to leave their home pointed out as a clear reason the loss of their jobs. However, the second preferred option includes reasons not listed in the form for their intentions to a new displacement.
+
+```{r regular entry}
+reg_e <- dfg %>% mutate(REGULAR_ENTRY = recode(
+  REGULAR_ENTRY,"1"="Si","0"="No"))
+
+reg_e <- (as.data.frame(wtd.table(reg_e$REGULAR_ENTRY, 
+                                  weights=reg_e$fexp))) %>% 
+          mutate(Percent=100*Freq/sum(Freq)) %>% 
+          mutate(Percent=round(Percent, 1))
+
+
+ggplot(reg_e, aes(reorder(Var1, -Percent), Percent)) +
+    geom_col(stat="identity", fill="#0072bc", alpha=.6, widht=.4) +
+    geom_text(aes(label=Percent), position = position_dodge(width = 0.9),
+              vjust=0.25, size=4) +
+    xlab("") + 
+    ggtitle("Entrada regular a Ecuador") +
+    theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=12),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face="bold", size=12, hjust=0.5))
+
+```
+
+Finally for this section, we have that more than the half of PoC surveyed told us that had an irregular entry to Ecuador. This fact impacts on their possibilities to access to a regular migratory status.
+
+```{r regular entry nat}
+reg_e <- dfg %>% mutate(REGULAR_ENTRY = recode(
+  REGULAR_ENTRY,"1"="Si","0"="No"))
+
+reg_e <- (as.data.frame(wtd.table(reg_e$REGULAR_ENTRY, reg_e$REF02,
+                                  weights=reg_e$fexp))) %>% 
+          group_by(Var2) %>% 
+          mutate(Percent=100*Freq/sum(Freq)) %>% 
+          mutate(Percent=round(Percent, 1))
+
+
+ggplot(reg_e, aes(x=Var2, y=Percent, fill=Var1)) +
+  geom_bar(position = "dodge", stat="identity", alpha=.6, widht=.4) +
+  geom_text(aes(label=Percent), position = position_dodge(width = 0.9),
+            vjust=0.25, size=4) +
+  ggtitle("Entrada regular a Ecuador por nacionalidad") +
+  theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=12),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face="bold", size=12, hjust=0.5)) + 
+scale_fill_manual(values=c("#0072BC", "#00B398"))
+
+```
+
+```{r, include=FALSE}
+rm(d_int, d_rea, flee, flee2, reg_e, spn, spn2, T_R, T_W, tab_int,
+   trans, trans2, gbv_main, gbv1, gbv2)
+```
+
+
+# Needs of International Protection
+
+```{r Return Risk}
+dfg <- dfg %>% mutate(RISKYES=recode(RISKYES,
+             '1'="1 Completamente en desacuerdo",
+             '2'="2 En desacuerdo",
+             '3'="3 Neutral",
+             '4'="4 De acuerdo",
+             '5'="5 Completamente de acuerdo"))
+
+r_r <- (as.data.frame(wtd.table(dfg$RISKYES, dfg$REF02, weights = dfg$fexp))) %>% group_by(Var2) %>%  
+          mutate(Percent=100*Freq/sum(Freq)) %>% 
+          mutate(Percent=round(Percent,1))
+
+#mutate(Var1 = factor(Var1, levels = unique(Var1)))
+
+# r_r <- r_r %>% 
+#   add_value_labels(Var1=c("Completamente en desacuerdo"='1',
+#              "En desacuerdo"='2',
+#              "Neutral"='3',
+#              "De acuerdo"='4',
+#              "Completamente de acuerdo"='5'))
+          
+ggplot(r_r, aes(x=Var2, y=Percent, fill=Var1)) +
+    geom_bar(position = "dodge", stat="identity", alpha=.6, widht=.4) +
+    geom_text(aes(label=Percent), position = position_dodge(width = 0.9),
+              vjust=0.25, size=4) +
+    ggtitle("Percepción de riesgo en caso de regresar al País de Origen") +
+    theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=12),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face="bold", size=12, hjust=0.5)) + 
+  scale_fill_manual(values=c("#044F85", "#0072BC", 
+                             "#666666", "#49CFB4", "#027B68"))
+
+```
+
+A first way to assess the need of international protection is known whether an individual has risks against her integrity or that of her family. So, we find that the 57% of Colombian respondents told that their families will suffer risks against their security in case of return to their country of origin. In the other hand, Venezuelans expressed it fear in less of the 30%.
+
+```{r Return Risks Types COL}
+risks <- dfg %>% as_survey_design(weights=fexp) %>%
+  group_by(REF02) %>% 
+  select("RISKRETURN.1",	"RISKRETURN.2",	"RISKRETURN.3",	"RISKRETURN.4",	"RISKRETURN.5",	"RISKRETURN.6", "RISKRETURN.7",	"RISKRETURN.8", "RISKRETURN.9", "RISKRETURN.10", "RISKRETURN.11", "RISKRETURN.12", "RISKRETURN.13", "RISKRETURN.14") %>%
+  summarise(across(c(RISKRETURN.1:RISKRETURN.14), survey_total, 
+                   na.rm=TRUE)) 
+
+risks <- risks %>% select(-ends_with("_se")) %>% 
+  rename('1 Amenaza directa' = RISKRETURN.1,	
+         '2 Riesgo de extorsión' = RISKRETURN.2,	
+         '3 Violencia generalizada' = RISKRETURN.3,	
+         '4 Inseguridad' = RISKRETURN.4,	
+         '5 Grupos armados' = RISKRETURN.5,	
+         '6 Riesgo de persecución' = RISKRETURN.6,	
+         '7 Reclutamiento forzado' = RISKRETURN.7,	
+         '8 Falta de empleo' = RISKRETURN.8,
+         '9 Falta de comida' = RISKRETURN.9,	
+         '10 Falta de servicios médicos' = RISKRETURN.10,	
+         '11 Riesgo de salud' = RISKRETURN.11,	
+         '12 Violencia de género' = RISKRETURN.12,
+         '13 Otros riesgos' = RISKRETURN.13,
+         '14 Prefiero no decir' = RISKRETURN.14
+         )
+
+risks2 <- gather(risks, v, val, "1 Amenaza directa":"14 Prefiero no decir") %>% group_by(REF02) %>% mutate(Percent=100*val/sum(val)) %>% mutate(Percent=round(Percent, 1)) %>% filter(REF02=="Colombiana")
+
+ggplot(risks2, aes(x=REF02, y=Percent, fill=v)) +
+    geom_bar(position = "dodge", stat="identity", alpha=.6, widht=.4, colour="white") +
+    geom_text(aes(label = Percent), position = position_dodge(width = 0.9), vjust = 0.25, size=4) +
+    ggtitle("Tipos de riesgos en caso de retorno al país de origen") +
+    theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=12),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face= "bold", size=12, hjust=0.5)) +
+  scale_fill_manual(values = c("#044F85", "#044F85", "#044F85", "#044F85", "#666666", "#666666", "#044F85", "#044F85", "#044F85", "#044F85", "#044F85", "#044F85", "#666666", "#666666"))
+
+```
+
+```{r Return Risks Types VEN}
+risks2 <- gather(risks, v, val, "1 Amenaza directa":"14 Prefiero no decir") %>% group_by(REF02) %>% mutate(Percent=100*val/sum(val)) %>% mutate(Percent=round(Percent, 1)) %>% filter(REF02=="Venezolana")
+
+ggplot(risks2, aes(x=REF02, y=Percent, fill=v)) +
+    geom_bar(position = "dodge", stat="identity", alpha=.6, widht=.4, colour="white") +
+    geom_text(aes(label = Percent), position = position_dodge(width = 0.9), vjust = 0.25, size=4) +
+    ggtitle("Tipos de riesgos en caso de retorno al país de origen") +
+    theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=12),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face= "bold", size=12, hjust=0.5)) +
+  scale_fill_manual(values = c("#044F85", "#044F85", "#044F85", "#044F85", "#666666", "#666666", "#044F85", "#044F85", "#044F85", "#044F85", "#044F85", "#044F85", "#666666", "#666666"))
+
+```
+
+For those who evaluate that have risks in case of return, have identified as main reasons a direct threat against them or somebody in their families, and the lack of effectively access to rights of work, food, and medical services. It is important to mention that **columns filled with gray** are reasons that not apply to a refugee condition.
+
+```{r refugee aplication}
+app <- dfg %>%
+  select("APPLIEDREFUGEE", "REF02", "fexp") %>%
+  mutate(APPLIEDREFUGEE = recode(APPLIEDREFUGEE,
+                      '1'="1 No tengo intención de aplicar",
+                      '2'="2 No, planeo aplicar en otro país",
+                      '3'="3 Tengo la intención, pero aún no lo he hecho",
+                      '4'="4 Si, ya he aplicado (decisión pendiente)",
+                      '5'="5 Si, ya tengo el estatus de refugiado",
+                      '6'="6 Si, la aplicación fue rechazada",
+                      '7'="7 Apliqué, pero abandoné el proceso"))
+
+apply <- (as.data.frame(wtd.table(app$APPLIEDREFUGEE, weights = app$fexp))) %>% 
+  mutate(Percent=100*Freq/sum(Freq)) %>% 
+  mutate(Percent=round(Percent,1))
+  
+ggplot(apply, aes(reorder(Var1, Percent), Percent)) +
+    geom_bar(stat="identity", fill="#0072bc", alpha=.6, widht=.4) +
+    geom_text(aes(label=Percent), position = position_dodge(width = 0.9),
+              vjust=0.25, size=4) +
+    coord_flip() + 
+    xlab("") + 
+    ggtitle("Intenciones de aplicar al Asilo") +
+    theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=12),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face="bold", size=12, hjust=0.5)) +
+  scale_fill_manual(values=c("#18375F", "#044F85", "#0072BC", "#589BE5", "#8EBEFF", "DCE9FF"))
+
+```
+
+To promote their achievement of international protection in Ecuador, we ask about intention to apply to asylum. We find that only a 20% have already applied for asylum in Ecuador, caused mainly by the sample of Venezuelan PoC. Other respondents are nor interested in apply in Ecuador, or haven't done yet. 
+
+```{r refugee aplication nat}
+
+apply <- (as.data.frame(wtd.table(app$APPLIEDREFUGEE, app$REF02, weights = app$fexp))) %>% group_by(Var2) %>% 
+  mutate(Percent=100*Freq/sum(Freq)) %>% 
+  mutate(Percent=round(Percent,1))
+  
+ggplot(apply, aes(x=Var2, y=Percent, fill=Var1)) +
+    geom_bar(position = "dodge", stat="identity", alpha=.6, widht=.4) +
+    geom_text(aes(label=Percent), position = position_dodge(width = 0.9),
+              vjust=0.25, size=4) +
+    ggtitle("Intenciones de aplicar al Asilo por nacionalidad") +
+    theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=12),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face="bold", size=12, hjust=0.5)) +
+  scale_fill_manual(values=c("#18375F", "#044F85", "#0072BC", "#589BE5", "#8EBEFF", "#DCE9FF"))
+
+```
+
+```{r not application reasons}
+not_ap <- dfg %>% as_survey_design(weights=fexp) %>%
+  select("NotAsylum.1",	"NotAsylum.2",	"NotAsylum.3",	"NotAsylum.4",	"NotAsylum.5",	"NotAsylum.6", "NotAsylum.7",	"NotAsylum.8", "REF02", "fexp") %>%
+  summarise(across(c(NotAsylum.1:NotAsylum.8), survey_total, na.rm=TRUE)) 
+
+not_ap <- not_ap %>% select(-ends_with("_se")) %>% 
+  rename('Falta de documentación' = NotAsylum.1,	
+         'Falta de información' = NotAsylum.2,	
+         'Costo' = NotAsylum.3,	
+         'Falta de tiempo' = NotAsylum.4,	
+         'No hay oficina de Prtccn Intrncnl aqui' = NotAsylum.5,	
+         'No confío en el proceso' = NotAsylum.6,	
+         'No estoy interesado' = NotAsylum.7,	
+         'Otra' = NotAsylum.8
+         )
+
+not_ap2 <- gather(not_ap, v, val, "Falta de documentación":"Otra") %>% 
+          mutate(Percent=100*val/sum(val)) %>% 
+          mutate(Percent=round(Percent, 1))
+
+ggplot(not_ap2, aes(x=reorder(v, Percent), y=Percent)) +
+    geom_bar(stat="identity", fill="#0072bc", alpha=.6, widht=.4) +
+    geom_text(aes(label = Percent), position = position_dodge(width = 0.9), vjust = 0.25, size=4) +
+    coord_flip() +
+    xlab("") + 
+    ggtitle("Razones de no aplicar al Asilo") +
+    theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=12),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face= "bold", size=12, hjust=0.5)) 
+
+```
+
+Between those that have the plan to apply but haven't done yet, have identified as main reasons of this delay the lack of information about the procedures and insufficient documentation to apply. Therefore, UNHCR has a big challenge to promote this right in Ecuador, including and guiding people in forced displacement with the aim that they apply to the asylum.
+
+```{r not application reasons nat}
+not_ap <- dfg %>% as_survey_design(weights=fexp) %>%
+  group_by(REF02) %>% 
+  select("NotAsylum.1",	"NotAsylum.2",	"NotAsylum.3",	"NotAsylum.4",	"NotAsylum.5",	"NotAsylum.6", "NotAsylum.7",	"NotAsylum.8", "REF02", "fexp") %>%
+  summarise(across(c(NotAsylum.1:NotAsylum.8), survey_total, na.rm=TRUE))
+
+not_ap <- not_ap %>% select(-ends_with("_se")) %>% 
+  rename('Falta de documentación' = NotAsylum.1,	
+         'Falta de información' = NotAsylum.2,	
+         'Costo' = NotAsylum.3,	
+         'Falta de tiempo' = NotAsylum.4,	
+         'No hay oficina de Prtccn Intrncnl aqui' = NotAsylum.5,	
+         'No confío en el proceso' = NotAsylum.6,	
+         'No estoy interesado' = NotAsylum.7,	
+         'Otra' = NotAsylum.8
+         )
+
+not_ap2 <- gather(not_ap, v, val, "Falta de documentación":"Otra") %>% 
+          group_by(REF02) %>% 
+          mutate(Percent=100*val/sum(val)) %>% 
+          mutate(Percent=round(Percent, 1))
+
+ggplot(not_ap2, aes(x=REF02, y=Percent, fill=v)) +
+    geom_bar(position= "dodge", stat="identity", alpha=.6, widht=.4) +
+    geom_text(aes(label = Percent), position = position_dodge(width = 0.9), vjust = 0.25, size=4) +
+    ggtitle("Razones de no aplicar al Asilo por nacionalidad") +
+    theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=12),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face= "bold", size=12, hjust=0.5)) + 
+  scale_fill_manual(values=c("#044F85", "#0072BC", "#589BE5", "#8EBEFF",
+                           "#027B68", "#00B398", "#49CFB4", "#6AE8CC"))
+
+
+```
+
+```{r, include=FALSE}
+rm(app, apply, not_ap, not_ap2, r_r, risks, risks2)
+```
+
+
+# Rights exercise
+
+## Documentation
+
+```{r identification documents nat} 
+docs <- dfper %>% filter(REF02=="Colombiana" | REF02=="Venezolana") %>% 
+  mutate(REF02=recode(REF02,
+                  "Colombiana"="Colombiana",
+                  "Venezolana"="Venezolana")) %>%
+  as_survey_design(weights=fexp) %>%
+  group_by(REF02) %>% 
+  select("REG01a", "REG01b", "REG01c","REG01h", "REG01i", "REG01j", "REG01k", "fexp") %>%
+  summarise(across(c(REG01a:REG01k), survey_total, na.rm=TRUE))
+
+docs <- docs %>% select(-ends_with("_se")) %>% 
+  rename('Pasaporte vigente' = REG01a,	
+         'Certificado o registro de nacimiento' = REG01b,	
+         'Documento de identidad vigente' = REG01c,	
+         'Pasaporte expirado' = REG01h,	
+         'Documento de identidad expirado' = REG01i,	
+         'Copia de un documento de identidad' = REG01j,	
+         'Denuncia por pérdida de documento de identidad' = REG01k
+         )
+
+docs2 <- gather(docs, v, val, "Pasaporte vigente":"Denuncia por pérdida de documento de identidad") %>% 
+          group_by(REF02) %>% 
+          mutate(Percent=100*val/sum(val)) %>% 
+          mutate(Percent=round(Percent, 1))
+
+ggplot(docs2, aes(x=REF02, y=Percent, fill=v)) +
+  geom_bar(position = "dodge", stat="identity", alpha=.6, widht=.4) +
+  geom_text(aes(label=Percent), position = position_dodge(width = 0.9),
+            vjust=0.25, size=4) +
+  ggtitle("Documento de identidad que tiene en esta localidad, 
+  por nacionalidad (Personas de 5 años y más)") +
+  theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=12),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face="bold", size=12, hjust=0.5)) + 
+scale_fill_manual(values=c("#044F85", "#0072BC", "#589BE5", "#8EBEFF", 
+                           "#18375F", "#506489", "#8395B9"))
+
+```
+
+```{r travel documents nat}
+visa <- dfper %>% filter(REF02=="Colombiana" | REF02=="Venezolana") %>% 
+  mutate(REF02=recode(REF02,
+                  "Colombiana"="Colombiana",
+                  "Venezolana"="Venezolana")) %>%
+  select(estatus_migratorio, fexp, REF02) %>% 
+  mutate(visa = case_when(
+    estatus_migratorio==1 ~ "1 Visa o permiso de residencia 
+    permanente",
+    estatus_migratorio==2 ~ "2 Visa o permiso de residencia 
+    temporal",
+    estatus_migratorio==3 ~ "3 Permiso o visa como solicitante 
+    de refugio",
+    estatus_migratorio==4 ~ "4 Permiso temporal del país 
+    donde me encuentro",
+    estatus_migratorio==5 ~ "5 Expedición de permiso pendiente 
+    o en proceso",
+    estatus_migratorio==6 ~ "6 Visa de turista actualmente 
+    vigente",
+    estatus_migratorio==7 ~ "7 No poseo visa - El permiso 
+    está vencido",
+    estatus_migratorio==99 ~ "8 Prefiero no decir",
+    TRUE ~ as.character(NA
+  ))) 
+
+visa1 <- (as.data.frame(wtd.table(visa$visa, visa$REF02, weights=visa$fexp))) %>%
+          group_by(Var2) %>% 
+          mutate(Percent=100*Freq/sum(Freq)) %>% 
+          mutate(Percent=round(Percent, 1))
+
+ggplot(visa1, aes(x=Var2, y=Percent, fill=Var1)) +
+    geom_bar(position = "dodge", stat="identity", alpha=.6, widht=.4) +
+    geom_text(aes(label = Percent), position = position_dodge(width = 0.9), 
+              vjust = 0.25, size=4) +
+    ggtitle("Tipo de permiso de residencia o visa que tiene en este país por nacionalidad
+            (Personas de 5 años y más)") +
+    theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=12),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face= "bold", size=12, hjust=0.25)) +
+  scale_fill_manual(values=c("#044F85", "#0072BC", "#589BE5", "#8EBEFF", 
+                           "#18375F", "#506489", "#8395B9", "#B8C9EE"))
+                    
+```
+
+## Habitability
+
+```{r housing}
+house <- dfg %>% select(DWE01, DWA01, fexp, REF02) %>% 
+  mutate(aloj = case_when(
+    DWE01==1 ~ "Apartamento",
+    DWE01==2 ~ "Casa",
+    DWE01==10 ~ "Habitación (un cuarto para toda la familia)",
+    TRUE ~ "Espacios no apropiados para vivir"
+  )) %>% 
+  mutate(agua = case_when(
+    DWA01==1 ~ "Tubería dentro de la vivenda",
+    DWA01==11 ~ "Camión/Tanque repartidor",
+    DWA01==14 ~ "Agua en botella",
+    TRUE ~ "Otros suministros fuera de la vivienda"
+  ))
+
+aloj <- (as.data.frame(wtd.table(house$aloj, weights=house$fexp))) %>% 
+          mutate(Percent=100*Freq/sum(Freq)) %>% 
+          mutate(Percent=round(Percent, 1))
+
+ggplot(aloj, aes(x=reorder(Var1, Percent), y=Percent)) +
+    geom_bar(stat="identity", fill="#0072bc", alpha=.6, widht=.4) +
+    geom_text(aes(label = Percent), position = position_dodge(width = 0.9), 
+              vjust = 0.25, size=4) +
+    coord_flip() +
+    xlab("") + 
+    ggtitle("Tipo de alojamiento que habita el hogar") +
+    theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=12),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face= "bold", size=12, hjust=0.25))
+
+```
+
+```{r water}
+agua <- (as.data.frame(wtd.table(house$agua, weights=house$fexp))) %>% 
+          mutate(Percent=100*Freq/sum(Freq)) %>% 
+          mutate(Percent=round(Percent, 1))
+
+ggplot(agua, aes(x=reorder(Var1, Percent), y=Percent)) +
+    geom_bar(stat="identity", fill="#0072bc", alpha=.6, widht=.4) +
+    geom_text(aes(label = Percent), position = position_dodge(width = 0.9), 
+              vjust = 0.25, size=4) +
+    coord_flip() +
+    xlab("") + 
+    ggtitle("Suministro de agua que utiliza el hogar") +
+    theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=12),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face= "bold", size=12, hjust=0.25))
+
+```
+
+As we can see, the households that participate in the survey lives mainly in an apartment or a house, with a supply of water within of their home. It is appropriate to remember that due to the sampling methodology of the survey, the percentage of homeless people it is imprecise.
+
+## Health Services
+
+```{r access to services}
+hacc <- dfg %>% select(HACC03, fexp, REF02) %>% 
+  mutate(hacc = case_when(
+    HACC03==1 ~ "No",
+    TRUE ~ "Si"
+  )) 
+
+salud1 <- (as.data.frame(wtd.table(hacc$hacc, weights=hacc$fexp))) %>% 
+          mutate(Percent=100*Freq/sum(Freq)) %>% 
+          mutate(Percent=round(Percent, 1))
+
+ggplot(salud1, aes(x=Var1, y=Percent)) +
+    geom_bar(stat="identity", fill="#0072bc", alpha=.6, widht=.4) +
+    geom_text(aes(label = Percent), position = position_dodge(width = 0.9), 
+              vjust = 0.25, size=4) +
+    ggtitle("En el último mes cuando alguien en la familia necesitó ir al médico,
+            ¿pudo acceder a los servicios de salud?") +
+    theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=12),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face= "bold", size=12, hjust=0.25))
+
+```
+
+```{r reasons no access}
+hrea <- dfg %>% as_survey_design(weights=fexp) %>%
+  select("HACC04.1", "HACC04.2", "HACC04.3", "HACC04.4", "HACC04.5", "HACC04.6", "HACC04.7", "HACC04.8", "HACC04.9", "HACC04.96", "fexp") %>%
+  summarise(across(c(HACC04.1:HACC04.96), survey_total, na.rm=TRUE))
+
+hrea <- hrea %>% select(-ends_with("_se")) %>% 
+  rename('Falta de dinero' = HACC04.1,
+         'No había personal médico disponible' = HACC04.2,
+         'El establecimiento estaba lleno' = HACC04.3,
+         'El establecimiento estaba cerrado' = HACC04.4,
+         'No habían suficientes suministros' = HACC04.5,
+         'El centro de salud queda muy lejos' = HACC04.6,
+         'Miedo a contraer el coronavirus' = HACC04.7,
+         'Restricciones de viaje' = HACC04.8,
+         'El centro de salud está destruido' = HACC04.9,
+         'Otra' = HACC04.96)
+
+salud2 <- gather(hrea, v, val, "Falta de dinero":"Otra") %>% 
+          mutate(Percent=100*val/sum(val)) %>% 
+          mutate(Percent=round(Percent, 1))
+
+ggplot(salud2, aes(x=reorder(v, Percent), y=Percent)) +
+  geom_bar(stat="identity", fill="#0072BC", alpha=.6, widht=.4) +
+  geom_text(aes(label=Percent), position = position_dodge(width = 0.9),
+            vjust=0.25, size=4) +
+  coord_flip() +
+  xlab("") +
+  ggtitle("Razones por las que no pudo acceder a la atención 
+          en el centro de salud") +
+  theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=12),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face="bold", size=12, hjust=0.5))
+
+```
+
+## Education
+
+```{r enrollment nat}
+enroll <- dfper %>% filter(REF02=="Colombiana" | REF02=="Venezolana") %>% 
+  select(EDU01_Enroll, fexp, REF02) %>% 
+  mutate(matric = case_when(
+    EDU01_Enroll==1 ~ "1 Si",
+    EDU01_Enroll==0 ~ "0 No",
+    TRUE ~ as.character(NA))) 
+
+enroll1 <- (as.data.frame(wtd.table(enroll$matric, enroll$REF02, weights=enroll$fexp))) %>%
+          group_by(Var2) %>% 
+          mutate(Percent=100*Freq/sum(Freq)) %>% 
+          mutate(Percent=round(Percent, 1))
+
+ggplot(enroll1, aes(x=Var2, y=Percent, fill=Var1)) +
+    geom_bar(position = "dodge", stat="identity", alpha=.6, widht=.4) +
+    geom_text(aes(label = Percent), position = position_dodge(width = 0.9), 
+              vjust = 0.25, size=4) +
+    ggtitle("¿Está matriculado/a en el sistema educativo? Por nacionalidad
+            (Personas de 5 a 24 años)") +
+    theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=12),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face= "bold", size=12, hjust=0.25)) +
+  scale_fill_manual(values=c("#0072BC", "#8EBEFF"))
+
+```
+
+```{r noenroll_reasons nat}
+educ_reas <- dfper %>% filter(REF02=="Colombiana" | REF02=="Venezolana") %>% 
+  select(educ_no_reasons, fexp, REF02) %>% 
+  mutate(matric = case_when(
+    educ_no_reasons==1 ~ "1 Falta de recursos económicos",
+    educ_no_reasons==2 ~ "2 Falta de documentos",
+    educ_no_reasons==3 ~ "3 Recién llegado",
+    educ_no_reasons==4 ~ "4 Sin información sobre el acceso",
+    educ_no_reasons==5 ~ "5 Tarde para inscribirse",
+    educ_no_reasons==6 ~ "6 Falta de cupo",
+    educ_no_reasons>=7 & educ_no_reasons<=13 ~ "7 Otra razón",
+    TRUE ~ as.character(NA))) 
+
+reasons <- (as.data.frame(wtd.table(educ_reas$matric, educ_reas$REF02, weights=educ_reas$fexp))) %>%
+          group_by(Var2) %>% 
+          mutate(Percent=100*Freq/sum(Freq)) %>% 
+          mutate(Percent=round(Percent, 1))
+
+ggplot(reasons, aes(x=Var2, y=Percent, fill=Var1)) +
+    geom_bar(position = "dodge", stat="identity", alpha=.6, widht=.4) +
+    geom_text(aes(label = Percent), position = position_dodge(width = 0.9), 
+              vjust = 0.25, size=4) +
+    ggtitle("Razón principal por la cual no está matriculado/a en el sistema educativo,
+            por nacionalidad (Personas de 5 a 24 años)") +
+    theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=12),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face= "bold", size=12, hjust=0.25)) +
+  scale_fill_manual(values=c("#044F85", "#0072BC", "#589BE5", "#8EBEFF", 
+                           "#18375F", "#506489", "#8395B9"))
+
+```
+
+
+## Employment
+
+```{r unemployment}
+unemp <- dfg %>% 
+  select(outcome13_3, fexp, REF02) %>% 
+  mutate(unemp = case_when(
+    outcome13_3==1 ~ "1 Si",
+    outcome13_3==0 ~ "0 No",
+    TRUE ~ as.character(NA))) 
+
+unemp1 <- (as.data.frame(wtd.table(unemp$unemp, weights=unemp$fexp))) %>%
+          mutate(Percent=100*Freq/sum(Freq)) %>% 
+          mutate(Percent=round(Percent, 1))
+
+ggplot(unemp1, aes(x=Var1, y=Percent)) +
+    geom_bar(stat="identity", fill="#0072bc", alpha=.6, widht=.4) +
+    geom_text(aes(label = Percent), position = position_dodge(width = 0.9), 
+              vjust = 0.25, size=4) +
+    ggtitle("Personas de interés en situación de desempleo 
+    (Personas de 15 años y más que son parte de la Población Económicamente Activa)
+            n=309") +
+    theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=12),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face= "bold", size=12, hjust=0.25))
+
+```
+
+```{r informal emp nat}
+informal <- dfg %>% 
+  select(MDV01, MDV02, MDV01_2, MDV02_2, UNEM03, labour_force, fexp, REF02) %>% 
+  mutate(informal = case_when(
+    MDV01==1   & labour_force==1 ~ "Formal",
+    MDV02==1   & labour_force==1 ~ "Formal",
+    MDV01_2==1 & labour_force==1 ~ "Formal",
+    MDV02_2==1 & labour_force==1 ~ "Formal",
+    UNEM03==1   & labour_force==1 ~ "Formal",
+    MDV01==0   | MDV01==98   & labour_force==1 ~ "Informal",
+    MDV02==0   | MDV02==98   & labour_force==1 ~ "Informal",
+    MDV01_2==0 | MDV01_2==98 & labour_force==1 ~ "Informal",
+    MDV02_2==0 | MDV02_2==98 & labour_force==1 ~ "Informal",
+    TRUE ~ as.character(NA))) 
+
+informal1 <- (as.data.frame(wtd.table(informal$informal, informal$REF02, weights=informal$fexp))) %>%
+          group_by(Var2) %>% 
+          mutate(Percent=100*Freq/sum(Freq)) %>% 
+          mutate(Percent=round(Percent, 1))
+
+ggplot(informal1, aes(x=Var2, y=Percent, fill=Var1)) +
+  geom_bar(position = "dodge", stat="identity", alpha=.6, widht=.4) +
+  geom_text(aes(label=Percent), position = position_dodge(width = 0.9),
+            vjust=0.25, size=4) +
+  ggtitle("Tipo de empleo (Personas de interés de 15 años y más con empleo) por nacionalidad
+          COL_n=86 // VEN_n=205") +
+  theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=12),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face="bold", size=12, hjust=0.5)) + 
+scale_fill_manual(values=c("#0072BC", "#8EBEFF"))
+
+```
+
+
+## Prioritary needs and coping mechanisms
+
+```{r urgent needs}
+needs <- dfg %>% select(URGENTNEEDS, fexp, REF02) %>% 
+  mutate(needs = case_when(
+    URGENTNEEDS==1 ~ "Necesidades básicas (comida, vivienda, ropa, etc.)",
+    URGENTNEEDS==2 ~ "Trabajo y otros servicios (salud, educación, etc.)",
+    URGENTNEEDS==3 ~ "Acceso a documentación o regularización migratoria",
+    URGENTNEEDS==4 ~ "Acceso a justicia o servicios de protección por violencia",
+    TRUE ~ "Ninguna de éstas. He podido cubrir mis necesidades o de mi familia"
+  )) 
+
+needs <- (as.data.frame(wtd.table(needs$needs, weights=needs$fexp))) %>% 
+          mutate(Percent=100*Freq/sum(Freq)) %>% 
+          mutate(Percent=round(Percent, 1))
+
+ggplot(needs, aes(x=reorder(Var1, Percent), y=Percent)) +
+    geom_bar(stat="identity", fill="#0072bc", alpha=.6, widht=.4) +
+    geom_text(aes(label = Percent), position = position_dodge(width = 0.9), 
+              vjust = 0.25, size=4) +
+    coord_flip() +
+    xlab("") + 
+    ggtitle("Necesidades prioritarias del hogar en el último mes") +
+    theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=12),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face= "bold", size=12, hjust=0.25))
+
+```
+
+```{r coping mechanisms}
+coping <- dfg %>% as_survey_design(weights=fexp) %>%
+  select("COPINGMECHANISM.1", "COPINGMECHANISM.2", "COPINGMECHANISM.3", "COPINGMECHANISM.4", "COPINGMECHANISM.5", "COPINGMECHANISM.6", "COPINGMECHANISM.7", "COPINGMECHANISM.8", "COPINGMECHANISM.9", "COPINGMECHANISM.10", "COPINGMECHANISM.11", "COPINGMECHANISM.12", "COPINGMECHANISM.13", "COPINGMECHANISM.14", "COPINGMECHANISM.15", "COPINGMECHANISM.16", "fexp") %>%
+  summarise(across(c(COPINGMECHANISM.1:COPINGMECHANISM.16), survey_total, na.rm=TRUE))
+
+coping <- coping %>% select(-ends_with("_se")) %>% 
+  rename('Limitar el consumo de comida entre adultos' = COPINGMECHANISM.1,
+         'Reducir las porciones de comida' = COPINGMECHANISM.2,
+         'Pedir dinero prestado' = COPINGMECHANISM.3,
+         'Trabajar a cambio de comida o alojamiento' = COPINGMECHANISM.4,
+         'Trabajar jornadas largas y poco descanso' = COPINGMECHANISM.5,
+         'Apoyo familiar' = COPINGMECHANISM.6,
+         'Usar los ahorros' = COPINGMECHANISM.7,
+         'Reducir el gasto en no esenciales' = COPINGMECHANISM.8,
+         'Vender propiedades u otros objetos' = COPINGMECHANISM.9,
+         'Buscar la ayuda de ONGs' = COPINGMECHANISM.10,
+         'Recibir donaciones de otros' = COPINGMECHANISM.11,
+         'No pagar la renta por varios meses' = COPINGMECHANISM.12,
+         'Mudarse a dpto más económico' = COPINGMECHANISM.13,
+         'Ninguna de las anteriores' = COPINGMECHANISM.14,
+         'Prefiero no decir' = COPINGMECHANISM.15,
+         'Otro mecanismo' = COPINGMECHANISM.16)
+
+cop2 <- gather(coping, v, val, "Limitar el consumo de comida entre adultos":"Otro mecanismo") %>% 
+          mutate(Percent=100*val/sum(val)) %>% 
+          mutate(Percent=round(Percent, 1))
+
+ggplot(cop2, aes(x=reorder(v, Percent), y=Percent)) +
+  geom_bar(stat="identity", fill="#0072BC", alpha=.6, widht=.4) +
+  geom_text(aes(label=Percent), position = position_dodge(width = 0.9),
+            vjust=0.25, size=4) +
+  coord_flip() +
+  xlab("") +
+  ggtitle("Mecanismos de afrontamiento para cubrir necesidades básicas 
+  durante los últimos 3 meses") +
+  theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=12),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face="bold", size=12, hjust=0.5))
+
+```
+
+```{r extreme mechanisms}
+extreme <- dfg %>% as_survey_design(weights=fexp) %>%
+  select("EXTREMEMECHANISM.1", "EXTREMEMECHANISM.2", "EXTREMEMECHANISM.3", "EXTREMEMECHANISM.4", "EXTREMEMECHANISM.5", "EXTREMEMECHANISM.6", "EXTREMEMECHANISM.7", "EXTREMEMECHANISM.8", "EXTREMEMECHANISM.9", "EXTREMEMECHANISM.10", "EXTREMEMECHANISM.11", "fexp") %>%
+  summarise(across(c(EXTREMEMECHANISM.1:EXTREMEMECHANISM.11), survey_total, na.rm=TRUE))
+
+extreme <- extreme %>% select(-ends_with("_se")) %>% 
+  rename('Pedir limosna' = EXTREMEMECHANISM.1,
+         'Recolectar restos de comida' = EXTREMEMECHANISM.2,
+         'Enviar a los niños/as con familiares' = EXTREMEMECHANISM.3,
+         'Enviar a los menores de 15 años a trabajar' = EXTREMEMECHANISM.4,
+         'Vender o intercambiar sexo para sobrevivir' = EXTREMEMECHANISM.5,
+         'Matrimonio infantil' = EXTREMEMECHANISM.6,
+         'Dormir en la calle' = EXTREMEMECHANISM.7,
+         'Acceder a chantajes que ponen en riesgo mi integridad' = EXTREMEMECHANISM.8,
+         'Ninguna de las anteriores' = EXTREMEMECHANISM.9,
+         'Prefiero no decir' = EXTREMEMECHANISM.10,
+         'Otro' = EXTREMEMECHANISM.11)
+
+ext2 <- gather(extreme, v, val, "Pedir limosna":"Otro") %>% 
+          mutate(Percent=100*val/sum(val)) %>% 
+          mutate(Percent=round(Percent, 1))
+
+ggplot(ext2, aes(x=reorder(v, Percent), y=Percent)) +
+  geom_bar(stat="identity", fill="#0072BC", alpha=.6, widht=.4) +
+  geom_text(aes(label=Percent), position = position_dodge(width = 0.9),
+            vjust=0.25, size=4) +
+  coord_flip() +
+  xlab("") +
+  ggtitle("Mecanismos Extremos de afrontamiento para cubrir 
+  necesidades básicas durante los últimos 3 meses") +
+  theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=12),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face="bold", size=12, hjust=0.5))
+
+```
+
+```{r}
+rm(agua, aloj, cop2, coping, docs, docs2, educ_reas, enroll, enroll1, ext2, extreme, hacc, house, hrea, informal, informal1, needs, reasons, salud1, salud2, unemp, unemp1, visa, visa1)
+```
+
+
+# Local integration
+
+Although this dimension could be assessed in some ways, here we show the results of questions that we included about relationship between PoC and host community.
+
+```{r walk at night nat}
+walk <- dfg %>% select(SAF01, fexp, REF02) %>% 
+  mutate(walk = case_when(
+    SAF01==1 ~ "1 Muy seguro/a",
+    SAF01==2 ~ "2 Bastante seguro/a",
+    SAF01==3 | SAF01==98 ~ "3 Un poco inseguro/a",
+    SAF01==4 ~ "4 Muy inseguro/a",
+    SAF01==5 ~ "5 Nunca camino solo/a 
+    después que anochece"
+  )) 
+
+walk <- (as.data.frame(wtd.table(walk$walk, walk$REF02, weights=walk$fexp))) %>% 
+          group_by(Var2) %>% 
+          mutate(Percent=100*Freq/sum(Freq)) %>% 
+          mutate(Percent=round(Percent, 1))
+
+ggplot(walk, aes(x=Var2, y=Percent, fill=Var1)) +
+    geom_bar(position = "dodge", stat="identity", alpha=.6, widht=.4) +
+    geom_text(aes(label = Percent), position = position_dodge(width = 0.9), 
+              vjust = 0.25, size=4) +
+    ggtitle("Sentirse seguro/a cuando camina solo/a en su barrio al anochecer,
+            por nacionalidad") +
+    theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=12),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face= "bold", size=12, hjust=0.25)) +
+  scale_fill_manual(values=c("#044F85", "#0072BC", "#999999", "#00B398", "#027B68"))
+
+```
+
+The graph show us that, in average, Colombian PoC feel more insecurity walking around their neighborhood at night. Although this result is mediated by the general fear that Colombian refugees feel after fleeing from their country, the Venezuelan people have a high percentage of fear, surely due to the general insecurity that affects some cities like Guayaquil and Manta.
+
+```{r feel safe}
+safe <- dfg %>% select(FEELSAFE, REF02, fexp) %>% 
+                mutate(FEELSAFE=recode(FEELSAFE,
+                              '1'="1 Completamente 
+                              en desacuerdo",
+                              '2'="2 En desacuerdo",
+                              '3'="3 Neutral",
+                              '4'="4 De acuerdo",
+                              '5'="5 Completamente 
+                              de acuerdo"))
+
+
+safe <- (as.data.frame(wtd.table(safe$FEELSAFE, weights = safe$fexp))) %>% 
+          mutate(Percent=100*Freq/sum(Freq)) %>% 
+          mutate(Percent=round(Percent,1))
+
+ggplot(safe, aes(x=Var1, y=Percent)) +
+    geom_col(stat="identity", fill="#0072bc", alpha=.6, widht=.4) +
+    geom_text(aes(label=Percent), position = position_dodge(width = 0.9),
+              vjust=0.25, size=4) +
+    xlab("") + 
+    ggtitle("Sentirse seguro/a en el barrio de residencia") +
+    theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=10),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face="bold", size=12, hjust=0.5))
+
+```
+
+The PoC in Ecuador stated that they feel unsafe in their neighborhoods in more than 22% of cases. And, with 63% of them feeling safe, there is still a 15% of neutral answers, i.e. could feel safe or unsafe in a changing way.
+
+```{r feel safe nat}
+safe <- dfg %>% select(FEELSAFE, REF02, fexp) %>% 
+                mutate(FEELSAFE=recode(FEELSAFE,
+                              '1'="1 Completamente en desacuerdo",
+                              '2'="2 En desacuerdo",
+                              '3'="3 Neutral",
+                              '4'="4 De acuerdo",
+                              '5'="5 Completamente de acuerdo"))
+
+
+safe <- (as.data.frame(wtd.table(safe$FEELSAFE, safe$REF02, weights = safe$fexp))) %>% 
+          group_by(Var2) %>% 
+          mutate(Percent=100*Freq/sum(Freq)) %>% 
+          mutate(Percent=round(Percent,1))
+
+ggplot(safe, aes(x=Var2, y=Percent, fill=Var1)) +
+    geom_col(position = "dodge", stat="identity", alpha=.6, widht=.4) +
+    geom_text(aes(label=Percent), position = position_dodge(width = 0.9),
+              vjust=0.25, size=4) +
+    ggtitle("Sentirse seguro/a en el barrio de residencia por nacionalidad") +
+    theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=10),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face="bold", size=12, hjust=0.5)) + 
+    scale_fill_manual(values=c("#044F85", "#0072BC", "#999999", "#00B398", "#027B68"))
+
+```
+
+
+```{r isolation}
+isolation <- dfg %>% select(ISOLATION, REF02, fexp) %>% 
+                mutate(ISOLATION=recode(ISOLATION,
+                              '1'="1 Completamente 
+                              en desacuerdo",
+                              '2'="2 En desacuerdo",
+                              '3'="3 Neutral",
+                              '4'="4 De acuerdo",
+                              '5'="5 Completamente 
+                              de acuerdo"))
+
+isolation <- (as.data.frame(wtd.table(isolation$ISOLATION, 
+                                      weights = isolation$fexp))) %>% 
+          mutate(Percent=100*Freq/sum(Freq)) %>% 
+          mutate(Percent=round(Percent,1))
+
+ggplot(isolation, aes(x=Var1, y=Percent)) +
+    geom_col(stat="identity", fill="#0072bc", alpha=.6, widht=.4) +
+    geom_text(aes(label=Percent), position = position_dodge(width = 0.9),
+              vjust=0.25, size=4) +
+    xlab("") + 
+    ggtitle("Sentirse solitario en Ecuador") +
+    theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=10),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face="bold", size=12, hjust=0.5))
+
+```
+
+About feel isolated in Ecuador, 50% of PoC does not feel socially included in their host community. This number shows a clear problem on how PoC feel their life within a community in the cities of Ecuador.
+
+```{r isolation nat}
+isolation <- dfg %>% select(ISOLATION, REF02, fexp) %>% 
+                mutate(ISOLATION=recode(ISOLATION,
+                              '1'="1 Completamente en desacuerdo",
+                              '2'="2 En desacuerdo",
+                              '3'="3 Neutral",
+                              '4'="4 De acuerdo",
+                              '5'="5 Completamente de acuerdo"))
+
+isolation <- (as.data.frame(wtd.table(isolation$ISOLATION, isolation$REF02,
+                                      weights = isolation$fexp))) %>% 
+          group_by(Var2) %>% 
+          mutate(Percent=100*Freq/sum(Freq)) %>% 
+          mutate(Percent=round(Percent,1))
+
+ggplot(isolation, aes(x=Var2, y=Percent, fill=Var1)) +
+    geom_col(position = "dodge", stat="identity", alpha=.6, widht=.4) +
+    geom_text(aes(label=Percent), position = position_dodge(width = 0.9),
+              vjust=0.25, size=4) +
+    ggtitle("Sentirse solitario en Ecuador por nacionalidad") +
+    theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=10),
+      axis.title=element_text(size=12,face="bold"),
+      plot.title = element_text(face="bold", size=12, hjust=0.5)) + 
+      scale_fill_manual(values=c("#044F85", "#0072BC", "#999999", "#00B398", "#027B68"))
+
+```
+
+
+```{r interaction}
+interac <- dfg %>% select(INTERACTION, REF02, fexp) %>% 
+          mutate(INTERACTION=recode(INTERACTION,
+                              '1'="1 Muy negativa",
+                              '2'="2 Negativa",
+                              '3'="3 Neutral",
+                              '4'="4 Positiva",
+                              '5'="5 Muy positiva"))
+
+interac <- (as.data.frame(wtd.table(interac$INTERACTION, 
+                                      weights = interac$fexp))) %>% 
+          mutate(Percent=100*Freq/sum(Freq)) %>% 
+          mutate(Percent=round(Percent,1))
+
+ggplot(interac, aes(x=Var1, y=Percent)) +
+    geom_col(stat="identity", fill="#0072bc", alpha=.6, widht=.4) +
+    geom_text(aes(label=Percent), position = position_dodge(width = 0.9),
+              vjust=0.25, size=4) +
+    xlab("") + 
+    ggtitle("Percepción de la relación/interacción con la comunidad local") +
+    theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=10),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face="bold", size=12, hjust=0.5))
+
+```
+
+Nevertheless, PoC mentioned that have a positive interaction with host community in about 64%. This fact shows that at the same time the PoC relates adequately with host community, they does not end up feeling their cities as their home.
+
+```{r interaction nat}
+interac <- dfg %>% select(INTERACTION, REF02, fexp) %>% 
+          mutate(INTERACTION=recode(INTERACTION,
+                              '1'="1 Muy negativa",
+                              '2'="2 Negativa",
+                              '3'="3 Neutral",
+                              '4'="4 Positiva",
+                              '5'="5 Muy positiva"))
+
+interac <- (as.data.frame(wtd.table(interac$INTERACTION, interac$REF02,
+                                      weights = interac$fexp))) %>% 
+          group_by(Var2) %>% 
+          mutate(Percent=100*Freq/sum(Freq)) %>% 
+          mutate(Percent=round(Percent,1))
+
+ggplot(interac, aes(x=Var2, y=Percent, fill=Var1)) +
+    geom_col(position = "dodge", stat="identity", alpha=.6, widht=.4) +
+    geom_text(aes(label=Percent), position = position_dodge(width = 0.9),
+              vjust=0.25, size=4) +
+    ggtitle("Percepción de la relación/interacción con la comunidad local por nacionalidad") +
+    theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=10),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face="bold", size=12, hjust=0.5)) +
+  scale_fill_manual(values=c("#044F85", "#0072BC", "#999999", "#00B398", "#027B68"))
+
+```
+
+
+```{r discrimination}
+discrim <- dfg %>% select(DISCRIMINATED, REF02, fexp) %>% 
+          mutate(DISCRIMINATED=recode(DISCRIMINATED,
+                              '1'="1 Completamente 
+                              en desacuerdo",
+                              '2'="2 En desacuerdo",
+                              '3'="3 Neutral",
+                              '4'="4 De acuerdo",
+                              '5'="5 Completamente 
+                              de acuerdo"))
+
+discrim <- (as.data.frame(wtd.table(discrim$DISCRIMINATED, 
+                                    weights = discrim$fexp))) %>%
+          mutate(Percent=100*Freq/sum(Freq)) %>% 
+          mutate(Percent=round(Percent,1))
+
+ggplot(discrim, aes(x=Var1, y=Percent)) +
+    geom_bar(stat="identity", fill="#0072bc", alpha=.6, widht=.4) +
+    geom_text(aes(label=Percent), position = position_dodge(width = 0.9),
+              vjust=0.25, size=4) +
+    xlab("") +
+    ggtitle("Sentirse discriminado en la localidad") +
+    theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=10),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face="bold", size=12, hjust=0.5))
+
+```
+
+```{r discrimination nat}
+discrim <- dfg %>% select(DISCRIMINATED, REF02, fexp) %>% 
+          mutate(DISCRIMINATED=recode(DISCRIMINATED,
+                              '1'="1 Completamente en desacuerdo",
+                              '2'="2 En desacuerdo",
+                              '3'="3 Neutral",
+                              '4'="4 De acuerdo",
+                              '5'="5 Completamente de acuerdo"))
+
+discrim <- (as.data.frame(wtd.table(discrim$DISCRIMINATED, discrim$REF02,
+                                      weights = discrim$fexp))) %>%
+          group_by(Var2) %>% 
+          mutate(Percent=100*Freq/sum(Freq)) %>% 
+          mutate(Percent=round(Percent,1))
+
+ggplot(discrim, aes(x=Var2, y=Percent, fill=Var1)) +
+    geom_col(position = "dodge", stat="identity", alpha=.6, widht=.4) +
+    geom_text(aes(label=Percent), position = position_dodge(width = 0.9),
+              vjust=0.25, size=4) +
+    ggtitle("Sentirse discriminado en la localidad por nacionalidad") +
+    theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=10),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face="bold", size=12, hjust=0.5)) +
+  scale_fill_manual(values=c("#044F85", "#0072BC", "#999999", "#00B398", "#027B68"))
+
+```
+
+Finally, we asked about feeling discriminated in Ecuador. PoC surveyed answered that were discriminated in about 67% for Colombians, and in a 49% for Venezuelans. This fact shows, as previously mentioned in other reports of UNHCR, that PoC have a better relationship with Ecuadorian people in the Coast. And also, mainly Venezuelan people talked about a lower discrimination in cities like Guayaquil or Manta.
+
+```{r discrimination reasons nat}
+disc_reason <- dfg %>% as_survey_design(weights = fexp) %>% 
+  group_by(REF02) %>% 
+  select("DISCRIMINATEDREASONS.1",	"DISCRIMINATEDREASONS.2",	"DISCRIMINATEDREASONS.3",	"DISCRIMINATEDREASONS.4",	"DISCRIMINATEDREASONS.5",	"DISCRIMINATEDREASONS.6", "DISCRIMINATEDREASONS.7",	"DISCRIMINATEDREASONS.8", "fexp") %>%
+  summarise(across(c(DISCRIMINATEDREASONS.1:DISCRIMINATEDREASONS.8), survey_total, na.rm=TRUE)) 
+
+disc_reason <- disc_reason %>% select(-ends_with("_se")) %>% 
+  rename('Edad' = DISCRIMINATEDREASONS.1,	
+         'Origen étnico o color de piel' = DISCRIMINATEDREASONS.2,	
+         'Nacionalidad' = DISCRIMINATEDREASONS.3,	
+         'Ser mujer' = DISCRIMINATEDREASONS.4,	
+         'Ser hombre' = DISCRIMINATEDREASONS.5,	
+         'Orientación sexual o de género' = DISCRIMINATEDREASONS.6,	
+         'Religión' = DISCRIMINATEDREASONS.7,	
+         'Otra' = DISCRIMINATEDREASONS.8
+         )
+  
+disc_reason2 <- gather(disc_reason, v, val, "Edad":"Otra") %>%
+          group_by(REF02) %>% 
+          mutate(Percent=100*val/sum(val)) %>% 
+          mutate(Percent=round(Percent, 1))
+
+ggplot(disc_reason2, aes(x=REF02, y=Percent, fill=v)) +
+  geom_bar(position = "dodge", stat="identity", alpha=.6, widht=.4) +
+  geom_text(aes(label=Percent), position = position_dodge(width = 0.9),
+            vjust=0.25, size=4) +
+  ggtitle("Razones principales por las que sintió discriminación por nacionalidad") +
+  theme(panel.background = element_rect(fill="white"),
+          axis.text=element_text(size=12),
+        axis.title=element_text(size=12,face="bold"),
+        plot.title = element_text(face="bold", size=12, hjust=0.5)) + 
+  scale_fill_manual(values=c("#044F85", "#0072BC", "#589BE5", "#8EBEFF",
+                           "#027B68", "#00B398", "#49CFB4", "#6AE8CC"))
+
+```
+
+And, about the reasons of feel discriminated, we consider interesting to disaggregate the information between the nationality of the respondent. Thus, between Colombians, their nationality and then their skin color are the main reasons of feel discriminated in Ecuador. This fact is based in the important proportion of afro-descendant Colombians PoC living in the country.
+
+Meanwhile, for Venezuelans, their nationality is the main reason to feel discriminated. Also, be a woman is another important reason.
+
+```{r}
+rm(disc_reason, disc_reason2, discrim, interac, isolation, safe, walk)
+```
+
+
+# Concluding remark
+
+These big set of **quantitative findings** is an important component for the Protection Monitoring, and also a guide to new research exercises and targeted interventions in Ecuador. The methodological details of surveys collected will be include in a separate and specific section.
+
+
